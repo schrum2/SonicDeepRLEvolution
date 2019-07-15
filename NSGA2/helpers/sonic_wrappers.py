@@ -75,17 +75,31 @@ class AllowBacktracking(gym.Wrapper):
 
     def step(self, action): # pylint: disable=E0202
         obs, rew, done, info = self.env.step(action)
+        xpos = info['x']
+        ypos = info['y']
         self._cur_x += rew
         rew = max(0, self._cur_x - self._max_x)
         self._max_x = max(self._max_x, self._cur_x)
         return obs, rew, done, info
 
-def wrap_sonic(env, stack=True, scale_rew=True):
+def make_custom(game, state, stack=False, scale_rew=True):
+    """
+    Create an environment with some standard wrappers.
+    """
+
+    # Simplified, not remote
+    env = make(game=game, state=state)
+    #env = grc.RemoteEnv('tmp/sock')
+
     env = SonicDiscretizer(env)
     if scale_rew:
         env = RewardScaler(env)
-    # env = WarpFrame96(env)
-    if stack:
+    # This is disallowed in the pytorch-a2c-ppo-acktr-gail code as well
+    # but I wonder if we should make it work. The reason it doesn't is because
+    # we're not matching the architecture from the TensorFlow PPO entry.
+    #env = WarpFrame96(env)
+
+    if stack: # This seems to cost too much video memory to use
         env = FrameStack(env, 4)
-    # env = AllowBacktracking(env)
+    env = AllowBacktracking(env)
     return env

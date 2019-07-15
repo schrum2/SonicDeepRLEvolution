@@ -39,7 +39,7 @@ def main():
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                         args.gamma, args.log_dir, device, False)
+                         args.gamma, args.log_dir, device, True) # True to allow early resets
 
     actor_critic = Policy(
         envs.observation_space.shape,
@@ -100,6 +100,12 @@ def main():
     start = time.time()
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
+
+    f = open("log.txt","w")
+    f.write("#Steps\tReturn\n")
+    f.flush()
+    cumulative_steps = 0
+
     for j in range(num_updates):
 
         if args.use_linear_lr_decay:
@@ -115,10 +121,11 @@ def main():
                     rollouts.obs[step], rollouts.recurrent_hidden_states[step],
                     rollouts.masks[step])
 
-            # Schrum: Uncomment this out to watch Sonic as he learns. This should only be done with 1 process though.
-            # Alex: Best for GPUs as the "pause" every num_steps is taken care of much faster than with a CPU
-            envs.render()
+            #envs.render()
+            cumulative_steps += 1
             # Obser reward and next obs
+            if device.type == 'cuda': # For some reason, CUDA actions are nested in an extra layer
+                action = action[0]
             obs, reward, done, infos = envs.step(action)
 
             for info in infos:
@@ -190,10 +197,13 @@ def main():
 
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
-            ob_rms = utils.get_vec_normalize(envs).ob_rms
-            evaluate(actor_critic, ob_rms, args.env_name, args.seed,
-                     args.num_processes, eval_log_dir, device)
+            #ob_rms = utils.get_vec_normalize(envs).ob_rms
+            average_return = evaluate(actor_critic, envs, args.num_processes, device)
+            f.write("{}\t{}\n".format(cumulative_steps, average_return))
+            f.flush()
 
+    # Close file if training ever finishes
+    f.close()
 
 if __name__ == "__main__":
     main()

@@ -5,15 +5,14 @@ from a2c_ppo_acktr import utils
 from a2c_ppo_acktr.envs import make_vec_envs
 
 
-def evaluate(actor_critic, ob_rms, env_name, seed, num_processes, eval_log_dir,
-             device):
-    eval_envs = make_vec_envs(env_name, seed + num_processes, num_processes,
-                              None, eval_log_dir, device, True)
+def evaluate(actor_critic, eval_envs, num_processes, device):
+    #eval_envs = make_vec_envs(env_name, seed + num_processes, num_processes,
+    #                          None, eval_log_dir, device, True)
 
-    vec_norm = utils.get_vec_normalize(eval_envs)
-    if vec_norm is not None:
-        vec_norm.eval()
-        vec_norm.ob_rms = ob_rms
+    #vec_norm = utils.get_vec_normalize(eval_envs)
+    #if vec_norm is not None:
+    #    vec_norm.eval()
+    #    vec_norm.ob_rms = ob_rms
 
     eval_episode_rewards = []
 
@@ -30,7 +29,10 @@ def evaluate(actor_critic, ob_rms, env_name, seed, num_processes, eval_log_dir,
                 eval_masks,
                 deterministic=True)
 
+        eval_envs.render()
         # Obser reward and next obs
+        if device.type == 'cuda': # For some reason, CUDA actions are nested in an extra layer
+            action = action[0]
         obs, _, done, infos = eval_envs.step(action)
 
         eval_masks = torch.tensor(
@@ -43,6 +45,8 @@ def evaluate(actor_critic, ob_rms, env_name, seed, num_processes, eval_log_dir,
                 eval_episode_rewards.append(info['episode']['r'])
 
     eval_envs.close()
-
+    average_return = np.mean(eval_episode_rewards)
     print(" Evaluation using {} episodes: mean reward {:.5f}\n".format(
-        len(eval_episode_rewards), np.mean(eval_episode_rewards)))
+        len(eval_episode_rewards), average_return))
+        
+    return average_return
