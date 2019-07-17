@@ -89,20 +89,20 @@ def fast_non_dominated_sort(values1, values2):
     del front[len(front)-1]
     return front
 
-def calculate_novelty(behavior_characterizations):
-    """ Given all behavior characterizations, compute all novelty scores """
+def calculate_novelty(population_behaviors, archive_behaviors):
+    """ Calculate novelty scores by comparing behavior characterizations from
+        current population to the archive of all behaviors. 
+    """
     ns = []
-    for i in range(0, len(behavior_characterizations)):
+    for i in range(0, len(population_behaviors)):
         total_dist = 0
-        for j in range(0, len(behavior_characterizations)):
-            # Compare to all others except self
-            if i != j:
-                i_behavior = behavior_characterizations[i]
-                j_behavior = behavior_characterizations[j]
-                dist = euclidean_dist(i_behavior, j_behavior)
-                total_dist += dist
-        # The -1 excludes the current item (average with respect to others)
-        avg_dist = total_dist / (len(behavior_characterizations) - 1)
+        for j in range(0, len(archive_behaviors)):
+            i_behavior = population_behaviors[i]
+            j_behavior = archive_behaviors[j]
+            dist = euclidean_dist(i_behavior, j_behavior)
+            total_dist += dist
+
+        avg_dist = total_dist / len(archive_behaviors)
         ns.append(avg_dist)
     return ns
 
@@ -326,7 +326,7 @@ def log_line(str):
 
 def log_scores_and_behaviors(population_type, generation,fitness_scores, novelty_scores, behavior_characterizations):
     """ Create log file with details from a single generation """
-    
+
     f = open(os.path.join('{}/gen{}'.format(logging_location, generation),
              "{}.gen{}.txt".format(population_type,generation)),'w')
     f.write("#Fitness\tNovelty\tFinal x\tFinal y\n")
@@ -409,12 +409,13 @@ if __name__ == '__main__':
         max_grad_norm=args.max_grad_norm)
             
     gen_no = 0
+    behavior_archive = []
     while gen_no < args.num_gens:
         print("Start generation {}".format(gen_no))
         (fitness_scores, behavior_characterizations) = evaluate_population(solutions, agent, gen_no, "parents")
         # Compare all of the behavior characterizations to get the diversity/novelty scores.
-        # This is novelty with respect to parents only
-        novelty_scores = calculate_novelty(behavior_characterizations)
+        behavior_archive = behavior_archive + behavior_characterizations
+        novelty_scores = calculate_novelty(behavior_characterizations, behavior_archive)
 
         if gen_no % args.save_interval == 0:
             log_scores_and_behaviors("parents", gen_no, fitness_scores, novelty_scores, behavior_characterizations)
@@ -448,15 +449,17 @@ if __name__ == '__main__':
 
         print("Evaluate children of generation {}".format(gen_no))
         (fitness_scores2, behavior_characterizations2) = evaluate_population(solution2, agent, gen_no, "children")
-        # The novelty scores used for pruning the combined parent/child population need to be calculated with respect to the combined population
-        combined_behaviors = behavior_characterizations+behavior_characterizations2
-        novelty_scores_combined = calculate_novelty(combined_behaviors)
+        # The novelty scores for the parents need to be recomputed given the new members of the archive before selection on 
+        # the combined parent/child population occurs.
+        combined_behaviors = behavior_characterizations+behavior_characterizations2 # parents and children
+        behavior_archive = behavior_archive + behavior_characterizations2 # Add children to archive (parents already present)
+        novelty_scores_combined = calculate_novelty(combined_behaviors, behavior_archive)
 
         # Combine parent and child populations into one before elitist selection
         function1_values2 = fitness_scores + fitness_scores2
         function2_values2 = novelty_scores_combined
 
-        log_scores_and_behaviors("combined",gen_no,function1_values2,function2_values2,combined_behaviors)
+        log_scores_and_behaviors("combined", gen_no, function1_values2, function2_values2, combined_behaviors)
         
         non_dominated_sorted_solution2 = fast_non_dominated_sort(function1_values2[:], function2_values2[:])
         crowding_distance_values2 = []
