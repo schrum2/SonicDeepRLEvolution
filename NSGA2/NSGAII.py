@@ -172,6 +172,7 @@ def learn(env, agent):
 
     done = False
     num_updates = args.num_updates
+    num_updates_with_no_reward = 0
     for j in range(num_updates):
         # decrease learning rate linearly
         # simply changes learning rate of optimizer
@@ -207,6 +208,10 @@ def learn(env, agent):
 
         # Print total returns each time
         print(accumulated_reward, end=",")
+        if accumulated_reward == 0:
+            num_updates_with_no_reward += 1
+        else:
+            num_updates_with_no_reward = 0
 
         with torch.no_grad():
             next_value = net.get_value(
@@ -219,6 +224,11 @@ def learn(env, agent):
         # Learning update (ignore return values)
         agent.update(rollouts)
         rollouts.after_update()
+
+        if num_updates_with_no_reward > args.no_reward_tolerance:
+            print("Agent not learning. Stop. ", end="")
+            # If agent keeps getting no reward, then don't waste time on it
+            break
 
     # Carriage return after all of the learning scores
     print("")

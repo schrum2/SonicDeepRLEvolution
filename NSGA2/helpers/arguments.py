@@ -29,6 +29,8 @@ def get_args():
         '--watch-frequency',
         type=int, default=9999, # Set larger to max int value?
         help='set to indicate number of generations between rendering of evaluation')
+    parser.add_argument('--no-reward-tolerance',
+                        type=int, default=10, help='Number of updates with 0 reward before evolution gives up learning for particular genome (default: 10)')
     parser.add_argument('--eval-progress-fail-time',
                         type=int, default=50, help='Number of steps without a change in x coordinate before Sonic evaluation terminates (default: 50)')
     parser.add_argument('--num-gens',
