@@ -1,7 +1,10 @@
-# Program Name: NSGA-II.py
-# Description: This is a python implementation of Prof. Kalyanmoy Deb's popular NSGA-II algorithm
-# Author: Haris Ali Khan 
-# Supervisor: Prof. Manoj Kumar Tiwari
+"""
+    This is an implementation of NSGA-II by Haris Ali Khan that has been
+    modified to evolve deep neural networks to play Sonic the Hedgehog.
+    Much of the Sonic code comes from the OpenAI Retro Contest. Although
+    evolution instantiates the networks, they also learn using a PyTorch
+    version of PPO.
+"""
 
 # Importing required modules
 import os
@@ -32,10 +35,10 @@ from datetime import datetime
 
 args = get_args()
 
-# Function to find index of list
-def index_of(a, list):
-    for i in range(0, len(list)):
-        if list[i] == a:
+def index_of(an_element, a_list):
+    """ Function to find index of an element in a list """
+    for i in range(0, len(a_list)):
+        if a_list[i] == an_element:
             return i
     return -1
 
@@ -49,9 +52,8 @@ def sort_by_values(list1, values):
         values[index_of(min(values), values)] = math.inf
     return sorted_list
 
-
-# Function to carry out NSGA-II's fast non dominated sort
 def fast_non_dominated_sort(values1, values2):
+    """ Function to carry out NSGA-II's fast non dominated sort """
     S = [[] for i in range(0, len(values1))]
     front = [[]]
     n = [0 for i in range(0, len(values1))]
@@ -87,9 +89,8 @@ def fast_non_dominated_sort(values1, values2):
     del front[len(front)-1]
     return front
 
-
-# Given all behavior characterizations, compute all novelty scores
 def calculate_novelty(behavior_characterizations):
+    """ Given all behavior characterizations, compute all novelty scores """
     ns = []
     for i in range(0, len(behavior_characterizations)):
         total_dist = 0
@@ -105,14 +106,13 @@ def calculate_novelty(behavior_characterizations):
         ns.append(avg_dist)
     return ns
 
-
-# Distance between two behavior characterizations
 def euclidean_dist(i_behavior, j_behavior):
+    """ Distance between two behavior characterizations """
     index = total = 0
     # Position lists could be different lengths
     minimum = min(len(i_behavior), len(j_behavior))
     # Difference between common positions
-    while index < minimum: 
+    while index < minimum:
         total += (i_behavior[index] - j_behavior[index]) ** 2
         index += 1
     # If i_behavior is longer
@@ -128,9 +128,8 @@ def euclidean_dist(i_behavior, j_behavior):
     total = math.sqrt(total)
     return total
 
-
-# Function to calculate crowding distance
 def crowding_distance(values1, values2, front):
+    """ Function to calculate crowding distance """
     distance = [0 for i in range(0, len(front))]
     sorted1 = sort_by_values(front, values1[:])
     sorted2 = sort_by_values(front, values2[:])
@@ -142,30 +141,25 @@ def crowding_distance(values1, values2, front):
         distance[k] = distance[k] + (values1[sorted2[k+1]] - values2[sorted2[k-1]])/(max(values2)-min(values2))
     return distance
 
-
-# Function to carry out the crossover
 def crossover(a, b):
+    """ Function to carry out the crossover """
     r = random.random()
     if r > 0.5: # Crossover by adding the vectors and averaging
         return mutation((a+b)/2)
     else: # No crossover ... just mutate first of the two
         return mutation(a)
 
-
-# Function to carry out the mutation operator
 def mutation(solution):
-    #print("Original: ", solution)
+    """ Function to carry out the mutation operator """
     # TODO: Make the mutation range be an args parameter?
     max_range = 1
     # Bit vector multiplied by the range
-    mutationScale = np.random.randint(2, size=len(solution)) * max_range
-    solution = np.random.normal(solution, mutationScale).astype(np.float32)
-    #print("Mutated : ", solution)
+    mutation_scale = np.random.randint(2, size=len(solution)) * max_range
+    solution = np.random.normal(solution, mutation_scale).astype(np.float32)
     return solution
 
-
-# One network learns from evolved starting point.
 def learn(env, agent):
+    """ One network learns from evolved starting point. """
     global device
 
     net = agent.actor_critic
@@ -179,8 +173,6 @@ def learn(env, agent):
     done = False
     num_updates = args.num_updates
     for j in range(num_updates):
-    # while True:  # Until the episode is over
-
         # decrease learning rate linearly
         # simply changes learning rate of optimizer
         if args.use_linear_lr_decay:
@@ -224,23 +216,22 @@ def learn(env, agent):
         rollouts.compute_returns(next_value, args.use_gae, args.gamma,
                                  args.gae_lambda, args.use_proper_time_limits)
 
-        # These variables were only used for logging in the original PPO code.
-        # However, the agent.update command is important, and is doing the learning.
-        value_loss, action_loss, dist_entropy = agent.update(rollouts)
+        # Learning update (ignore return values)
+        agent.update(rollouts)
         rollouts.after_update()
 
     # Carriage return after all of the learning scores
     print("")
 
-
 def random_genome(n):
+    """ Random initial genome (network init should be favored) """
     # n is the number of weights
     return np.random.uniform(-1, 1, n).astype(np.float32)
 
-
-# Evaluate every member of the included population, which is a collection
-# of weight vectors for the neural networks.
 def evaluate_population(solutions, agent, generation, pop_type):
+    """ Evaluate every member of the included population, which is a collection
+        of weight vectors for the neural networks.
+    """
     global device
     fitness_scores = []
     behavior_characterizations = []
@@ -283,14 +274,10 @@ def evaluate_population(solutions, agent, generation, pop_type):
             
     return (fitness_scores, behavior_characterizations)
 
-
-# Function to set the weights of the network to our randomly generated values.
 def set_weights(net, weights):
+    """ Set weights of the network to those from a linear genome. """
 
-    # Alex: this implementation initializes everything, including biases, to a random value.
-    # I'll put some more work into this and see how I may go further (i.e. leaving biases as zeroes).
     i = 0
-
     # Get lengths of all the layers
     lengths = []
     sizes = []
@@ -317,9 +304,10 @@ def set_weights(net, weights):
         layer.data = reshaped_weights
         i += 1
 
-
-# Function to extract learned network weights from model as a linear vector/genome. NB: ONLY for Lamarckian.
 def extract_weights(net):
+    """Function to extract learned network weights from model as a linear vector/genome. 
+       Mainly needed for Lamarckian evolution.
+    """
     cnn_weights = []
     for layer in list(net.parameters()):
         cloned_layer = layer.clone()
@@ -329,14 +317,16 @@ def extract_weights(net):
     
     return cnn_weights
 
-
 def log_line(str):
+    """ Log given string to globally defined log file """
     f = open(log_file_name, 'a')  # Append a line
     f.write(str)
     f.close()
 
 
-def log_scores_and_behaviors(population_type,generation,fitness_scores,novelty_scores,behavior_characterizations):
+def log_scores_and_behaviors(population_type, generation,fitness_scores, novelty_scores, behavior_characterizations):
+    """ Create log file with details from a single generation """
+    
     f = open(os.path.join('{}/gen{}'.format(logging_location, generation),
              "{}.gen{}.txt".format(population_type,generation)),'w')
     f.write("#Fitness\tNovelty\tFinal x\tFinal y\n")
@@ -427,7 +417,7 @@ if __name__ == '__main__':
         novelty_scores = calculate_novelty(behavior_characterizations)
 
         if gen_no % args.save_interval == 0:
-            log_scores_and_behaviors("parents",gen_no,fitness_scores,novelty_scores,behavior_characterizations)
+            log_scores_and_behaviors("parents", gen_no, fitness_scores, novelty_scores, behavior_characterizations)
         
         log_line("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(gen_no,
                         np.min(fitness_scores), np.mean(fitness_scores), np.max(fitness_scores),
