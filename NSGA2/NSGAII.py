@@ -333,12 +333,25 @@ def log_line(str):
     f.write(str)
     f.close()
 
-
-def log_scores_and_behaviors(population_type, generation,fitness_scores, novelty_scores, behavior_characterizations):
-    """ Create log file with details from a single generation """
-
+def log_behavior_archive(generation, behavior_archive):
+    """ Save all behavior vectors to file """
+    global logging_location
     f = open(os.path.join('{}/gen{}'.format(logging_location, generation),
-             "{}.gen{}.txt".format(population_type,generation)),'w')
+             "archive.gen{}.txt".format(generation)), 'w')
+    for i in range(len(behavior_archive)):
+        bc_list = behavior_archive[i]
+        for j in range(len(bc_list)):
+            f.write("{}\t".format(bc_list[j]))
+
+        f.write("\n")
+
+    f.close()
+
+def log_scores_and_behaviors(population_type, generation, fitness_scores, novelty_scores, behavior_characterizations):
+    """ Create log file with details from a single generation """
+    global logging_location
+    f = open(os.path.join('{}/gen{}'.format(logging_location, generation),
+             "{}.gen{}.txt".format(population_type, generation)), 'w')
     f.write("#Fitness\tNovelty\tFinal x\tFinal y\n")
     for i in range(len(fitness_scores)):
         if args.final_pt:
@@ -469,6 +482,7 @@ if __name__ == '__main__':
         function1_values2 = fitness_scores + fitness_scores2
         function2_values2 = novelty_scores_combined
 
+        log_behavior_archive(gen_no, behavior_archive)
         log_scores_and_behaviors("combined", gen_no, function1_values2, function2_values2, combined_behaviors)
         
         non_dominated_sorted_solution2 = fast_non_dominated_sort(function1_values2[:], function2_values2[:])
