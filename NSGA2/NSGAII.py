@@ -152,7 +152,7 @@ def crossover(a, b):
 def mutation(solution):
     """ Function to carry out the mutation operator """
     # TODO: Make the mutation range be an args parameter?
-    max_range = 1
+    max_range = 0.5
     # Bit vector multiplied by the range
     mutation_scale = np.random.randint(2, size=len(solution)) * max_range
     solution = np.random.normal(solution, mutation_scale).astype(np.float32)
