@@ -151,8 +151,7 @@ def crossover(a, b):
 
 def mutation(solution):
     """ Function to carry out the mutation operator """
-    # TODO: Make the mutation range be an args parameter?
-    max_range = 0.5
+    max_range = args.mutation_range
     # Bit vector multiplied by the range
     mutation_scale = np.random.randint(2, size=len(solution)) * max_range
     solution = np.random.normal(solution, mutation_scale).astype(np.float32)
@@ -266,7 +265,7 @@ def evaluate_population(solutions, agent, generation, pop_type):
             print("Learning.", end=" ")
             learn(envs, agent)
             
-            if args.evol_mode == 'lamarck': 
+            if args.evol_mode == 'lamarck':
                 solutions[i] = extract_weights(agent.actor_critic)
 
         if generation % args.save_interval == 0 and pop_type == "parents":

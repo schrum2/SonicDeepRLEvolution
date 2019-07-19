@@ -53,6 +53,8 @@ def get_args():
         action='store_true',
         default=False,
         help='Render visualization during learning')
+    parser.add_argument('--mutation-range', # The default value of 0.005 is small, but compariable to the weight change caused by learning
+                        type=float, default=0.005, help='Max weight/bias change from a mutation (default: 0.005)')
     parser.add_argument('--gae-lambda',
                         type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
     parser.add_argument('--entropy-coef',
