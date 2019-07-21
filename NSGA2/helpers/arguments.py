@@ -98,6 +98,10 @@ def get_args():
         default='SonicTheHedgehog-Genesis',
         help='Sonic environment to train on (default: SonicTheHedgehog-Genesis)')
     parser.add_argument(
+        '--load-model',
+        default=None,
+        help='Path of saved model to load (default: None)')
+    parser.add_argument(
         '--env-state',
         default='GreenHillZone.Act1',
         help='state of given environment (default: GreenHillZone.Act1)')
