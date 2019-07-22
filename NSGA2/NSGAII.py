@@ -375,7 +375,9 @@ if __name__ == '__main__':
     # Actual logs
     global log_file_name, logging_location
     now = datetime.now()  # current date and time
-    new_log = now.strftime("%Y-%m-%d-{}-{}".format(args.env_state, args.evol_mode))
+    #new_log = now.strftime("%Y-%m-%d-{}-{}".format(args.env_state, args.evol_mode))
+    # Drop dates from logs
+    new_log = now.strftime("{}-{}".format(args.env_state, args.evol_mode))
     if args.save_dir != "": logging_location = os.path.join(args.save_dir, new_log)
     try:
         os.makedirs(logging_location)
@@ -392,31 +394,49 @@ if __name__ == '__main__':
     pop_size = args.pop_size
     global num_weights
     
-    if args.init_from_network:
+    if args.resume_gen > -1:
+        # Figure out where the files are saved
+        gen_dir = os.path.join(logging_location, "gen{}".format(args.resume_gen)).replace("\\", "/")
         solutions = []
+        # Load each population member
         for i in range(0, pop_size):
+            model_path = "{}/model-{}.pt".format(gen_dir, i)
+            print("Load {}".format(model_path))
+            # Load network model
+            if torch.cuda.is_available():
+                actor_critic, _ = torch.load(model_path)
+            else:
+                actor_critic, _ = torch.load(model_path, map_location='cpu')
+            # Extract the weights
+            solutions.append(extract_weights(actor_critic))
+
+        num_weights = sum(p.numel() for p in actor_critic.parameters() if p.requires_grad)
+    else:
+        if args.init_from_network:
+            solutions = []
+            for i in range(0, pop_size):
+                # Policy is created - in our case, since obs_shape is 3, it becomes a CNN
+                # Each initialization results in a new set of random weights
+                actor_critic = Policy(
+                    envs.observation_space.shape,
+                    envs.action_space,
+                    base_kwargs={'recurrent': args.recurrent_policy, 'is_genesis': True})
+                actor_critic.to(device)
+                # Take those random weights and create a genome
+                solutions.append(extract_weights(actor_critic))
+
+            num_weights = sum(p.numel() for p in actor_critic.parameters() if p.requires_grad)
+        else:
             # Policy is created - in our case, since obs_shape is 3, it becomes a CNN
-            # Each initialization results in a new set of random weights
             actor_critic = Policy(
                 envs.observation_space.shape,
                 envs.action_space,
                 base_kwargs={'recurrent': args.recurrent_policy, 'is_genesis': True})
             actor_critic.to(device)
-            # Take those random weights and create a genome
-            solutions.append(extract_weights(actor_critic))
-
-        num_weights = sum(p.numel() for p in actor_critic.parameters() if p.requires_grad)
-    else:
-        # Policy is created - in our case, since obs_shape is 3, it becomes a CNN
-        actor_critic = Policy(
-            envs.observation_space.shape,
-            envs.action_space,
-            base_kwargs={'recurrent': args.recurrent_policy, 'is_genesis': True})
-        actor_critic.to(device)
         
-        num_weights = sum(p.numel() for p in actor_critic.parameters() if p.requires_grad)
-        # Only need to know the number of weights in order to create completely random weights
-        solutions = [random_genome(num_weights) for i in range(0, pop_size)]
+            num_weights = sum(p.numel() for p in actor_critic.parameters() if p.requires_grad)
+            # Only need to know the number of weights in order to create completely random weights
+            solutions = [random_genome(num_weights) for i in range(0, pop_size)]
 
     # Agent is initialized
     agent = ppo.PPO(
@@ -430,7 +450,11 @@ if __name__ == '__main__':
         eps=1e-8, # This epsilon is not for exploration. It is for numerical stability of the Adam optimizer. This is the default value.
         max_grad_norm=args.max_grad_norm)
             
-    gen_no = 0
+    if args.resume_gen > -1:
+        gen_no = args.resume_gen
+    else:
+        gen_no = 0
+
     behavior_archive = []
     while gen_no < args.num_gens:
         print("Start generation {}".format(gen_no))

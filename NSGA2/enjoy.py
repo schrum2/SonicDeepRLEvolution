@@ -25,9 +25,9 @@ if __name__ == '__main__':
 
     # Generalize this
     model_path = args.load_model # "models/2019-07-18-MarbleZone.Act1-lamarck/gen0/model-1.pt"
-    if torch.cuda.is_available() :
+    if torch.cuda.is_available():
         actor_critic, ob_rms = torch.load(model_path)
-    else :
+    else:
         actor_critic, ob_rms = torch.load(model_path, map_location='cpu')
             
     print("Evaluating.", end=" ")

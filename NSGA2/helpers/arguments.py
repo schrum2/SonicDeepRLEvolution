@@ -37,6 +37,8 @@ def get_args():
                         type=int, default=50, help='number of genomes to run through (default: 50)')
     parser.add_argument('--num-updates',
                         type=int, default=128, help='number of learning updates if learning is used (default: 128)')
+    parser.add_argument('--resume-gen',
+                        type=int, default=-1, help='If non-negative, then load specified generation to resume evolution (default: -1)')
     parser.add_argument('--pop-size',
                         type=int, default=10, help='population size per genome (default: 10)')
     parser.add_argument('--lr',
