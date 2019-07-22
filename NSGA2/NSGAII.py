@@ -456,9 +456,17 @@ if __name__ == '__main__':
         # Load the previous behavior archive
         with open(os.path.join('{}/gen{}'.format(logging_location, gen_no),
              "archive.gen{}.txt".format(gen_no)), 'r') as f:
+            num_entries = 0
+            # Twice the pop_size number of entries for each completed generation (parents and children)
+            # but only parents from the final generation. 
+            expected_entries = (gen_no * 2 * pop_size) + pop_size
             for line in f:
                 values = [int(x) for x in line.split()]
                 behavior_archive.append(values)
+                num_entries += 1
+                if num_entries > expected_entries:
+                    # Don't load saved child entries from last generation, since new children will be generated on the resume
+                    break
 
         # TODO: Need to exclude the last 2*pop_size values, since those values will be re-inserted
         #print(behavior_archive)
