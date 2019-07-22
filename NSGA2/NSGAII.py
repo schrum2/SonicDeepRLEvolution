@@ -450,64 +450,94 @@ if __name__ == '__main__':
         eps=1e-8, # This epsilon is not for exploration. It is for numerical stability of the Adam optimizer. This is the default value.
         max_grad_norm=args.max_grad_norm)
             
+    behavior_archive = []
     if args.resume_gen > -1:
         gen_no = args.resume_gen
+        # Load the previous behavior archive
+        with open(os.path.join('{}/gen{}'.format(logging_location, gen_no),
+             "archive.gen{}.txt".format(gen_no)), 'r') as f:
+            for line in f:
+                values = [int(x) for x in line.split()]
+                behavior_archive.append(values)
+
+        # TODO: Need to exclude the last 2*pop_size values, since those values will be re-inserted
+        #print(behavior_archive)
     else:
         gen_no = 0
 
-    behavior_archive = []
     while gen_no < args.num_gens:
-        print("Start generation {}".format(gen_no))
-        (fitness_scores, behavior_characterizations) = evaluate_population(solutions, agent, gen_no, "parents")
-        # Compare all of the behavior characterizations to get the diversity/novelty scores.
-        behavior_archive = behavior_archive + behavior_characterizations
-        novelty_scores = calculate_novelty(behavior_characterizations, behavior_archive)
+        if gen_no == args.resume_gen:
+            function1_values2 = [] # Rewards
+            function2_values2 = [] # Novelty
+            # If loading the previously saved models, don't re-evaluate them. Load the previous scores
+            with open(os.path.join('{}/gen{}'.format(logging_location, gen_no),
+                    "combined.gen{}.txt".format(gen_no)), 'r') as f:
+                # Discard line of headers
+                f.readline()
+                # Remaining lines have data
+                for line in f:
+                    values = [float(x) for x in line.split()]
+                    function1_values2.append(values[0])
+                    function2_values2.append(values[1])
 
-        if gen_no % args.save_interval == 0:
-            log_scores_and_behaviors("parents", gen_no, fitness_scores, novelty_scores, behavior_characterizations)
+            #print(function1_values2)
+            #print(function2_values2)
+        else:
+            print("Start generation {}".format(gen_no))
+            (fitness_scores, behavior_characterizations) = evaluate_population(solutions, agent, gen_no, "parents")
+            # Compare all of the behavior characterizations to get the diversity/novelty scores.
+            behavior_archive = behavior_archive + behavior_characterizations
+            novelty_scores = calculate_novelty(behavior_characterizations, behavior_archive)
+
+            if gen_no % args.save_interval == 0:
+                log_scores_and_behaviors("parents", gen_no, fitness_scores, novelty_scores, behavior_characterizations)
         
-        log_line("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(gen_no,
+            log_line("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(gen_no,
                         np.min(fitness_scores), np.mean(fitness_scores), np.max(fitness_scores),
                         np.min(novelty_scores), np.mean(novelty_scores), np.max(novelty_scores)))
         
-        print("Max, Average, Min Fitness are {}, {} and {}".format(np.max(fitness_scores), np.mean(fitness_scores), np.min(fitness_scores)))
-        print("Max, Average, Min Novelty are {}, {} and {}".format(np.max(novelty_scores), np.mean(novelty_scores), np.min(novelty_scores)))
-        non_dominated_sorted_solution = fast_non_dominated_sort(fitness_scores[:], novelty_scores[:])
-        print("The best front for Generation number ", gen_no, " is")
-        for valuez in non_dominated_sorted_solution[0]:
-            print("Fitness:", fitness_scores[valuez])
-            print("Novelty:", novelty_scores[valuez])
-            print("------------------")
+            print("Max, Average, Min Fitness are {}, {} and {}".format(np.max(fitness_scores), np.mean(fitness_scores), np.min(fitness_scores)))
+            print("Max, Average, Min Novelty are {}, {} and {}".format(np.max(novelty_scores), np.mean(novelty_scores), np.min(novelty_scores)))
+            non_dominated_sorted_solution = fast_non_dominated_sort(fitness_scores[:], novelty_scores[:])
+            print("The best front for Generation number ", gen_no, " is")
+            for valuez in non_dominated_sorted_solution[0]:
+                print("Fitness:", fitness_scores[valuez])
+                print("Novelty:", novelty_scores[valuez])
+                print("------------------")
          
-         
-        crowding_distance_values = []
-        for i in range(0, len(non_dominated_sorted_solution)):
-            crowding_distance_values.append(crowding_distance(fitness_scores[:], novelty_scores[:], non_dominated_sorted_solution[i][:]))
+            crowding_distance_values = []
+            for i in range(0, len(non_dominated_sorted_solution)):
+                crowding_distance_values.append(crowding_distance(fitness_scores[:], novelty_scores[:], non_dominated_sorted_solution[i][:]))
 
-        # The lambda children            
-        solution2 = []
-        # Generating offspring
-        while len(solution2) != pop_size:
-            a1 = random.randint(0, pop_size-1)
-            b1 = random.randint(0, pop_size-1)
-            solution2.append(crossover(solutions[a1], solutions[b1]))
-            #print(solution2)
+            # The lambda children
+            solution2 = []
+            # Generating offspring
+            while len(solution2) != pop_size:
+                a1 = random.randint(0, pop_size-1)
+                b1 = random.randint(0, pop_size-1)
+                solution2.append(crossover(solutions[a1], solutions[b1]))
+                #print(solution2)
 
-        print("Evaluate children of generation {}".format(gen_no))
-        (fitness_scores2, behavior_characterizations2) = evaluate_population(solution2, agent, gen_no, "children")
-        # The novelty scores for the parents need to be recomputed given the new members of the archive before selection on 
-        # the combined parent/child population occurs.
-        combined_behaviors = behavior_characterizations+behavior_characterizations2 # parents and children
-        behavior_archive = behavior_archive + behavior_characterizations2 # Add children to archive (parents already present)
-        novelty_scores_combined = calculate_novelty(combined_behaviors, behavior_archive)
+            print("Evaluate children of generation {}".format(gen_no))
+            (fitness_scores2, behavior_characterizations2) = evaluate_population(solution2, agent, gen_no, "children")
 
-        # Combine parent and child populations into one before elitist selection
-        function1_values2 = fitness_scores + fitness_scores2
-        function2_values2 = novelty_scores_combined
+            # Combine the parent and child solutions so the best can be selected for the next parent population
+            solution2 = solutions + solution2
+    
+            # The novelty scores for the parents need to be recomputed given the new members of the archive before selection on
+            # the combined parent/child population occurs.
+            combined_behaviors = behavior_characterizations+behavior_characterizations2 # parents and children
+            behavior_archive = behavior_archive + behavior_characterizations2 # Add children to archive (parents already present)
+            novelty_scores_combined = calculate_novelty(combined_behaviors, behavior_archive)
 
-        log_behavior_archive(gen_no, behavior_archive)
-        log_scores_and_behaviors("combined", gen_no, function1_values2, function2_values2, combined_behaviors)
+            # Combine parent and child populations into one before elitist selection
+            function1_values2 = fitness_scores + fitness_scores2
+            function2_values2 = novelty_scores_combined
+
+            log_behavior_archive(gen_no, behavior_archive)
+            log_scores_and_behaviors("combined", gen_no, function1_values2, function2_values2, combined_behaviors)
         
+        # Selection to generate the next parent population
         non_dominated_sorted_solution2 = fast_non_dominated_sort(function1_values2[:], function2_values2[:])
         crowding_distance_values2 = []
         for i in range(0, len(non_dominated_sorted_solution2)):
