@@ -30,6 +30,9 @@ from helpers.model import Policy
 from helpers.storage import RolloutStorage
 from evaluation import evaluate
 
+# Read PNG info
+import struct
+
 # For log file
 from datetime import datetime
 
@@ -345,6 +348,18 @@ def log_behavior_archive(generation, behavior_archive):
         f.write("\n")
 
     f.close()
+    # Make a gnuplot file that plots end points on a map of the level
+    global map_width
+    global map_height
+    global map_file
+    plotfile = open(os.path.join('{}/gen{}'.format(logging_location, generation),
+                    "endpoints.gen{}.plot".format(generation)), 'w')
+    plotfile.write("set xrange [0:{}]\n".format(map_width))
+    plotfile.write("set yrange [0:{}]\n".format(map_height))
+    plotfile.write("plot \"../../../{}\" binary filetype=png w rgbimage notitle, \\\n".format(map_file))
+    plotfile.write("     \"archive.gen{}.txt\" u 1:({} - $2) ls 7 notitle\n".format(generation,map_height))
+    plotfile.write("pause -1\n")
+    plotfile.close()
 
 def log_scores_and_behaviors(population_type, generation, fitness_scores, novelty_scores, behavior_characterizations):
     """ Create log file with details from a single generation """
@@ -371,6 +386,26 @@ if __name__ == '__main__':
     # For some reason, this seems necessary for a wrapper that allows early environment termination
     log_dir = os.path.expanduser('/tmp/gym/') # Nothing is really stored here
     utils.cleanup_log_dir(log_dir)
+
+    # Set up plotting of end points on PNG map of level
+    global map_height
+    global map_width
+    global map_file
+
+    map_file = "maps/{}.{}.png".format(args.env_name, args.env_state)
+    # From : https://stackoverflow.com/questions/8032642/how-to-obtain-image-size-using-standard-python-class-without-using-external-lib
+    with open(map_file, 'rb') as fhandle:
+        head = fhandle.read(24)
+        if len(head) != 24:
+            print("Level map image file not present!")
+            quit(1)
+        check = struct.unpack('>i', head[4:8])[0]
+        if check != 0x0d0a1a0a:
+            print("Level map image file could not be read!")
+            quit(1)
+        width, height = struct.unpack('>ii', head[16:24])
+        map_height = height
+        map_width = width
 
     # Actual logs
     global log_file_name, logging_location
