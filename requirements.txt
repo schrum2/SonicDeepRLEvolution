@@ -5,6 +5,11 @@ gym==0.12.1
 gym-retro==0.7.0
 atari-py==0.1.15
 requests==2.22.0
-tensorflow==1.11.0
+tensorflow
 pytest
 baselines
+
+# Maybe also follow these directions: https://contest.openai.com/2018-1/details/
+# Need retro_contest ... these commands
+# git clone --recursive https://github.com/openai/retro-contest.git
+# pip install -e "retro-contest/support[docker,rest]"
