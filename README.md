@@ -18,6 +18,9 @@ To download the code and install the requirements, run the following prompt comm
 	conda install -c conda-forge swig (in Anaconda Prompt!)
     pip install -r requirements.txt
 
+To install ROMS, like Sonic the Hedgehog use the following on the appropriate directory:
+
+```python -m retro.import <ROM directory>```
 
 Implementation
 ============
