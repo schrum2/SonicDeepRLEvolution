@@ -5,11 +5,22 @@ gym==0.12.1
 gym-retro==0.7.0
 atari-py==0.1.15
 requests==2.22.0
-tensorflow
+tensorflow-gpu
+# tensorflow (pick one)
 pytest
-baselines
+# baselines # <-- This default version is no good. It has to be installed from GitHub (see below)
+
+# Also:
+# conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
 
 # Maybe also follow these directions: https://contest.openai.com/2018-1/details/
 # Need retro_contest ... these commands
 # git clone --recursive https://github.com/openai/retro-contest.git
 # pip install -e "retro-contest/support[docker,rest]"
+
+# Have to install baselines too? The pip install is not enough?
+# https://github.com/openai/baselines
+# Run:
+# git clone https://github.com/openai/baselines.git
+# cd baselines
+# pip install -e .
